@@ -423,381 +423,336 @@
     </div>
   </footer>
 
-<!-- Add Firebase SDK scripts in your <head> or before your script -->
+<!-- Firebase SDK -->
 <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-firestore-compat.js"></script>
 
 <script>
-  // Your JavaScript code here, including Firebase initialization
-</script>
-  <script>
+  // Firebase config and initialization
+  const firebaseConfig = {
+    apiKey: "AIzaSyBWlatSJVMVB1bfLcm_KIMW8G--jrq3jk0",
+  authDomain: "finance-2b0c7.firebaseapp.com",
+  projectId: "finance-2b0c7",
+  storageBucket: "finance-2b0c7.firebasestorage.app",
+  messagingSenderId: "503746748031",
+  appId: "1:503746748031:web:a58422292ca26ffddd294a",
+  measurementId: "G-XSPYK0FX7S"
+  };
+  firebase.initializeApp(firebaseConfig);
+  const db = firebase.firestore();
 
+  // Fixed data
+  const users = [
+    { username: "jeff", isAdmin: true, image: "images/users/jeff.jpg" },
+    { username: "rain", isAdmin: false, image: "images/users/rain.jpg" },
+    { username: "venice", isAdmin: false, image: "images/users/venice.jpg" },
+    { username: "mark", isAdmin: false, image: "images/users/mark.jpg" },
+    { username: "julie", isAdmin: true, image: "images/users/julie.jpg"},
+    { username: "rj", isAdmin: true, image: "images/users/rj.jpg" },
+    { username: "gerardo", isAdmin: false, image: "images/users/gerardo.jpg" },
+  ];
 
-async function loadTasksFromDB() {
-  const snapshot = await db.collection("tasks").get();
-  tasks = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-  loadTasks(); // render tasks
-}
+  const teams = {
+    auditor: ["gerardo"],
+    "finance assistant": ["rain", "venice"],
+    "finance relations manager": ["rj"],
+    "finance relations assistant": ["julie"],
+  };
 
-async function saveTaskToDB(task) {
-  if (task.id && typeof task.id === "string") {
-    // Update existing
-    await db.collection("tasks").doc(task.id).set(task);
-  } else {
-    // Add new
-    const docRef = await db.collection("tasks").add(task);
-    task.id = docRef.id;
-  }
-}
-    // Fixed data
-    const users = [
-      { username: "jeff", isAdmin: true, image: "images/users/jeff.jpg" },
-      { username: "rain", isAdmin: false, image: "images/users/rain.jpg" },
-      { username: "venice", isAdmin: false, image: "images/users/venice.jpg" },
-      { username: "mark", isAdmin: false, image: "images/users/mark.jpg" },
-      { username: "julie", isAdmin: true, image: "images/users/julie.jpg" },
-      { username: "rj", isAdmin: true, image: "images/users/rj.jpg" },
-      { username: "gerardo", isAdmin: false, image: "images/users/gerardo.jpg" },
-    ];
+  // App state
+  let currentUser  = null;
+  let tasks = [];
+  let agendas = {}; // agendas for loaded dates
+  let currentTab = "tasks";
+  let currentMonth = new Date();
+  let selectedDate = null;
 
-    const teams = {
-      auditor: ["gerardo"],
-      "finance assistant": ["rain", "venice"],
-      "finance relations manager": ["rj"],
-      "finance relations assistant": ["julie"],
-    };
+  // Firestore listeners unsubscribe functions
+  let unsubscribeTasksListener = null;
+  let unsubscribeAgendaListener = null;
+  let unsubscribeNotesListener = null;
 
-    // App data
-    let currentUser  = null;
-    let task = JSON.parse(localStorage.getItem("tasks")) || [];
-    let agendas = JSON.parse(localStorage.getItem("agendas")) || {};
-    let currentTab = "tasks";
-    let currentMonth = new Date();
-    let selectedDate = null;
-
-let tasks = [];
-let unsubscribeTasksListener = null;
-
-    function init() {
-  if (localStorage.getItem("username")) {
-    currentUser  = users.find(
-      (u) => u.username === localStorage.getItem("username").toLowerCase()
-    );
-    showApp();
-    setTab("tasks");
-    startTasksListener(); // Start listening to Firestore tasks
-  }
-}
-
-function startTasksListener() {
-  if (unsubscribeTasksListener) unsubscribeTasksListener(); // unsubscribe previous listener if any
-  unsubscribeTasksListener = db.collection("tasks")
-    .onSnapshot((snapshot) => {
-      tasks = snapshot.docs.map(doc => {
-        return { id: doc.id, ...doc.data() };
-      });
-      loadTasks(); // render tasks after update
-      loadLeaderboard();
-      loadDashboard();
-    }, (error) => {
-      console.error("Error fetching tasks from Firestore:", error);
-    });
-}
-
-function saveTaskToDB(task) {
-  if (task.id && typeof task.id === "string") {
-    // Update existing task
-    return db.collection("tasks").doc(task.id).set(task);
-  } else {
-    // Add new task
-    return db.collection("tasks").add(task);
-  }
-}
-
-    function populateAssignmentOptions() {
-      const select = document.getElementById("task-assigned");
-      select.innerHTML = "";
-
-      // Add users
-      users.forEach((u) => {
-        const option = document.createElement("option");
-        option.value = u.username;
-        option.textContent = `:User  ${u.username}`;
-        select.appendChild(option);
-      });
-
-      // Add teams
-      Object.keys(teams).forEach((team) => {
-        const option = document.createElement("option");
-        option.value = `team:${team}`;
-        option.textContent = `Team: ${team}`;
-        select.appendChild(option);
-      });
-    }
-
-    function loadNotes() {
-      const sharedKey = "shared_notes";
-      const savedNotes = localStorage.getItem(sharedKey) || "";
-      const textarea = document.getElementById("notes-textarea");
-      const saveBtn = document.querySelector("#notes-section button");
-      textarea.value = savedNotes;
-      document.getElementById("notes-save-msg").classList.add("hidden");
-      if (currentUser .isAdmin) {
-        textarea.removeAttribute("disabled");
-        saveBtn.style.display = "inline-block";
-      } else {
-        textarea.setAttribute("disabled", "disabled");
-        saveBtn.style.display = "none";
-      }
-    }
-
-    function saveNotes() {
-      const sharedKey = "shared_notes";
-      const notes = document.getElementById("notes-textarea").value;
-      localStorage.setItem(sharedKey, notes);
-      const msg = document.getElementById("notes-save-msg");
-      msg.classList.remove("hidden");
-      setTimeout(() => msg.classList.add("hidden"), 2000);
-    }
-
-    function login() {
-      const username = document
-        .getElementById("username-input")
-        .value.toLowerCase();
-      const errorEl = document.getElementById("login-error");
-      currentUser  = users.find((u) => u.username === username);
+  // Initialize app
+  function init() {
+    const storedUsername = localStorage.getItem("username");
+    if (storedUsername) {
+      currentUser  = users.find(u => u.username === storedUsername.toLowerCase());
       if (currentUser ) {
-        localStorage.setItem("username", currentUser .username);
         showApp();
         setTab("tasks");
-        loadTasks();
-        errorEl.classList.add("hidden");
+        startTasksListener();
+        startNotesListener();
       } else {
-        errorEl.textContent = "Invalid username. Please enter a valid name.";
-        errorEl.classList.remove("hidden");
+        localStorage.removeItem("username");
       }
     }
-
-    function logout() {
-      localStorage.removeItem("username");
-      currentUser  = null;
-      hideApp();
-      setTab("tasks");
-      document.getElementById("username-input").value = "";
-      document.getElementById("login-error").classList.add("hidden");
-    }
-
-    function showApp() {
-      document.getElementById("login-section").classList.add("hidden");
-      document.getElementById("app-section").classList.remove("hidden");
-      document.getElementById("logout-btn").classList.remove("hidden");
-      // Show admin controls if admin
-      document
-        .getElementById("admin-task-controls")
-        .classList.toggle("hidden", !currentUser .isAdmin);
-      if (currentUser .isAdmin) {
-        populateAssignmentOptions();
-      }
-    }
-
-    function hideApp() {
-      document.getElementById("app-section").classList.add("hidden");
-      document.getElementById("login-section").classList.remove("hidden");
-      document.getElementById("logout-btn").classList.add("hidden");
-    }
-
-    function setTab(tab) {
-      currentTab = tab;
-      const sections = ["tasks", "dashboard", "leaderboard", "calendar", "notes"];
-      sections.forEach((s) => {
-        document.getElementById(s + "-section").classList.toggle("hidden", s !== tab);
-        const btn = document.getElementById(s + "-tab");
-        if (s === tab) {
-          btn.classList.add("border-b-2", "border-white");
-          btn.classList.remove("text-gray-300");
-        } else {
-          btn.classList.remove("border-b-2", "border-white");
-          btn.classList.add("text-gray-300");
-        }
-      });
-      loadTabContent(tab);
-    }
-
-    function loadTabContent(tab) {
-      if (tab === "tasks") loadTasks();
-      if (tab === "dashboard") loadDashboard();
-      if (tab === "leaderboard") loadLeaderboard();
-      if (tab === "calendar") loadCalendar();
-      if (tab === "notes") loadNotes();
-    }
-
-    function isUserAssigned(task) {
-      if (!task.assignedTo || task.assignedTo.length === 0) return true; // no assignment means visible to all
-
-      // Check if user assigned directly
-      if (task.assignedTo.includes(currentUser .username)) return true;
-
-      // Check if user is in any assigned team
-      for (const assign of task.assignedTo) {
-        if (assign.startsWith("team:")) {
-          const teamName = assign.slice(5);
-          if (teams[teamName] && teams[teamName].includes(currentUser .username)) {
-            return true;
-          }
-        }
-      }
-      return false;
-    }
-
-    function loadTasks() {
-      const tasksList = document.getElementById("tasks-list");
-      const visibleTasks = tasks.filter(isUserAssigned);
-      tasksList.innerHTML = visibleTasks.length
-        ? visibleTasks
-            .map(
-              (task) => `
-            <div class="card">
-              <h3 class="text-xl font-semibold text-green-dark mb-2">${task.title}</h3>
-              <p class="text-gray-600 mb-3">${task.description || "No description"}</p>
-              <p class="text-sm text-gray-600 mb-3">Completed by: <span class="font-medium">${
-                task.doneBy.length ? task.doneBy.join(", ") : "None"
-              }</span></p>
-              <p class="text-sm text-gray-600 mb-3">Assigned to: <span class="font-medium">${
-                formatAssignedTo(task.assignedTo)
-              }</span></p>
-              <div class="flex flex-wrap gap-2">
-                ${
-                  currentUser .isAdmin
-                    ? `
-                  <button onclick="editTask(${task.id})" class="btn btn-gray">Edit</button>
-                  <button onclick="deleteTask(${task.id})" class="btn btn-red">Delete</button>
-                `
-                    : ""
-                }
-                ${
-                  !task.doneBy.includes(currentUser .username)
-                    ? `<button onclick="markDone(${task.id})" class="btn btn-green">Mark as Done</button>`
-                    : '<span class="text-green-600 font-semibold">✔ Completed</span>'
-                }
-              </div>
-            </div>
-          `
-            )
-            .join("")
-        : '<p class="text-gray-600">No tasks assigned to you.</p>';
-      document
-        .getElementById("admin-task-controls")
-        .classList.toggle("hidden", !currentUser .isAdmin);
-    }
-
-    function formatAssignedTo(assignedTo) {
-      if (!assignedTo || assignedTo.length === 0) return "All users";
-      return assignedTo
-        .map((a) => {
-          if (a.startsWith("team:")) {
-            return `Team: ${a.slice(5)}`;
-          }
-          return `:User  ${a}`;
-        })
-        .join(", ");
-    }
-
-   function addTask() {
-  const title = document.getElementById("new-task-title").value.trim();
-  const desc = document.getElementById("new-task-desc").value;
-  const assignedSelect = document.getElementById("task-assigned");
-  const assignedTo = Array.from(assignedSelect.selectedOptions).map(o => o.value);
-  if (!title) {
-    alert("Task title is required.");
-    return;
   }
-const newTask = {
-    title,
-    description: desc,
-    doneBy: [],
-    timestamps: {},
-    assignedTo
-}
- saveTaskToDB(newTask).then(() => {
+
+  // Start real-time listener for tasks collection
+  function startTasksListener() {
+    if (unsubscribeTasksListener) unsubscribeTasksListener();
+    unsubscribeTasksListener = db.collection("tasks")
+      .onSnapshot(snapshot => {
+        tasks = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        loadTasks();
+        loadLeaderboard();
+        loadDashboard();
+      }, error => {
+        console.error("Tasks listener error:", error);
+      });
+  }
+
+  // Start real-time listener for notes document
+  function startNotesListener() {
+    if (unsubscribeNotesListener) unsubscribeNotesListener();
+    unsubscribeNotesListener = db.collection("shared").doc("notes")
+      .onSnapshot(doc => {
+        const notes = doc.exists ? doc.data().text || "" : "";
+        const textarea = document.getElementById("notes-textarea");
+        textarea.value = notes;
+        document.getElementById("notes-save-msg").classList.add("hidden");
+        const saveBtn = document.querySelector("#notes-section button");
+        if (currentUser .isAdmin) {
+          textarea.removeAttribute("disabled");
+          saveBtn.style.display = "inline-block";
+        } else {
+          textarea.setAttribute("disabled", "disabled");
+          saveBtn.style.display = "none";
+        }
+      }, error => {
+        console.error("Notes listener error:", error);
+      });
+  }
+
+  // Start real-time listener for agendas of a specific date
+  function startAgendaListener(date) {
+    if (unsubscribeAgendaListener) unsubscribeAgendaListener();
+    unsubscribeAgendaListener = db.collection("agendas").doc(date)
+      .onSnapshot(doc => {
+        agendas[date] = doc.exists ? doc.data().items || [] : [];
+        showAgendas(date);
+        renderCalendar();
+      }, error => {
+        console.error("Agenda listener error:", error);
+      });
+  }
+
+  // Login function
+  function login() {
+    const usernameInput = document.getElementById("username-input");
+    const username = usernameInput.value.trim().toLowerCase();
+    const errorEl = document.getElementById("login-error");
+    currentUser  = users.find(u => u.username === username);
+    if (currentUser ) {
+      localStorage.setItem("username", currentUser .username);
+      showApp();
+      setTab("tasks");
+      startTasksListener();
+      startNotesListener();
+      errorEl.classList.add("hidden");
+    } else {
+      errorEl.textContent = "Invalid username. Please enter a valid name.";
+      errorEl.classList.remove("hidden");
+    }
+  }
+
+  // Logout function
+  function logout() {
+    localStorage.removeItem("username");
+    currentUser  = null;
+    hideApp();
+    setTab("tasks");
+    document.getElementById("username-input").value = "";
+    document.getElementById("login-error").classList.add("hidden");
+    if (unsubscribeTasksListener) unsubscribeTasksListener();
+    if (unsubscribeNotesListener) unsubscribeNotesListener();
+    if (unsubscribeAgendaListener) unsubscribeAgendaListener();
+  }
+
+  // Show app UI after login
+  function showApp() {
+    document.getElementById("login-section").classList.add("hidden");
+    document.getElementById("app-section").classList.remove("hidden");
+    document.getElementById("logout-btn").classList.remove("hidden");
+    document.getElementById("admin-task-controls").classList.toggle("hidden", !currentUser .isAdmin);
+    if (currentUser .isAdmin) {
+      populateAssignmentOptions();
+    }
+  }
+
+  // Hide app UI on logout
+  function hideApp() {
+    document.getElementById("app-section").classList.add("hidden");
+    document.getElementById("login-section").classList.remove("hidden");
+    document.getElementById("logout-btn").classList.add("hidden");
+  }
+
+  // Populate assignment options for tasks (users and teams)
+  function populateAssignmentOptions() {
+    const select = document.getElementById("task-assigned");
+    select.innerHTML = "";
+    users.forEach(u => {
+      const option = document.createElement("option");
+      option.value = u.username;
+      option.textContent = `:User   ${u.username}`;
+      select.appendChild(option);
+    });
+    Object.keys(teams).forEach(team => {
+      const option = document.createElement("option");
+      option.value = `team:${team}`;
+      option.textContent = `Team: ${team}`;
+      select.appendChild(option);
+    });
+  }
+
+  // Check if current user is assigned to a task
+  function isUserAssigned(task) {
+    if (!task.assignedTo || task.assignedTo.length === 0) return true; // visible to all
+    if (task.assignedTo.includes(currentUser .username)) return true;
+    for (const assign of task.assignedTo) {
+      if (assign.startsWith("team:")) {
+        const teamName = assign.slice(5);
+        if (teams[teamName] && teams[teamName].includes(currentUser .username)) {
+          return true;
+        }
+      }
+    }
+    return false;
+  }
+
+  // Load and render tasks list
+  function loadTasks() {
+    const tasksList = document.getElementById("tasks-list");
+    const visibleTasks = tasks.filter(isUser.Assigned);
+    tasksList.innerHTML = visibleTasks.length
+      ? visibleTasks.map(task => `
+        <div class="card">
+          <h3 class="text-xl font-semibold text-green-dark mb-2">${task.title}</h3>
+          <p class="text-gray-600 mb-3">${task.description || "No description"}</p>
+          <p class="text-sm text-gray-600 mb-3">Completed by: <span class="font-medium">${task.doneBy.length ? task.doneBy.join(", ") : "None"}</span></p>
+          <p class="text-sm text-gray-600 mb-3">Assigned to: <span class="font-medium">${formatAssignedTo(task.assignedTo)}</span></p>
+          <div class="flex flex-wrap gap-2">
+            ${currentUser .isAdmin ? `
+              <button onclick="editTask('${task.id}')" class="btn btn-gray">Edit</button>
+              <button onclick="deleteTask('${task.id}')" class="btn btn-red">Delete</button>
+            ` : ""}
+            ${!task.doneBy.includes(currentUser .username)
+              ? `<button onclick="markDone('${task.id}')" class="btn btn-green">Mark as Done</button>`
+              : '<span class="text-green-600 font-semibold">✔ Completed</span>'
+            }
+          </div>
+        </div>
+      `).join("")
+      : '<p class="text-gray-600">No tasks assigned to you.</p>';
+    document.getElementById("admin-task-controls").classList.toggle("hidden", !currentUser .isAdmin);
+  }
+
+  // Format assignedTo array for display
+  function formatAssignedTo(assignedTo) {
+    if (!assignedTo || assignedTo.length === 0) return "All users";
+    return assignedTo.map(a => a.startsWith("team:") ? `Team: ${a.slice(5)}` : `:User   ${a}`).join(", ");
+  }
+
+  // Add new task to Firestore
+  function addTask() {
+    const title = document.getElementById("new-task-title").value.trim();
+    const desc = document.getElementById("new-task-desc").value;
+    const assignedSelect = document.getElementById("task-assigned");
+    const assignedTo = Array.from(assignedSelect.selectedOptions).map(o => o.value);
+    if (!title) {
+      alert("Task title is required.");
+      return;
+    }
+    const newTask = {
+      title,
+      description: desc,
+      doneBy: [],
+      timestamps: {},
+      assignedTo
+    };
+    db.collection("tasks").add(newTask)
+      .then(() => {
+        document.getElementById("new-task-title").value = "";
+        document.getElementById("new-task-desc").value = "";
+        assignedSelect.selectedIndex = -1;
+        setTab("dashboard");
+      })
+      .catch(err => alert("Failed to add task: " + err.message));
+  }
+
+  // Edit task: populate form with task data
+  function editTask(id) {
+    const task = tasks.find(t => t.id === id);
+    if (!task) return;
+    document.getElementById("new-task-title").value = task.title;
+    document.getElementById("new-task-desc").value = task.description;
+    const assignedSelect = document.getElementById("task-assigned");
+    Array.from(assignedSelect.options).forEach(option => {
+      option.selected = task.assignedTo && task.assignedTo.includes(option.value);
+    });
+    document.getElementById("save-edit-btn").classList.remove("hidden");
+    document.getElementById("save-edit-btn").setAttribute("data-id", id);
+    document.getElementById("cancel-edit-btn").classList.remove("hidden");
+  }
+
+  // Save edited task to Firestore
+  function saveEditTask() {
+    const id = document.getElementById("save-edit-btn").getAttribute("data-id");
+    const title = document.getElementById("new-task-title").value.trim();
+    const desc = document.getElementById("new-task-desc").value;
+    const assignedSelect = document.getElementById("task-assigned");
+    const assignedTo = Array.from(assignedSelect.selectedOptions).map(o => o.value);
+    if (!title) {
+      alert("Task title is required.");
+      return;
+    }
+    const task = tasks.find(t => t.id === id);
+    if (!task) return;
+    task.title = title;
+    task.description = desc;
+    task.assignedTo = assignedTo;
+    db.collection("tasks").doc(id).set(task)
+      .then(() => cancelEdit())
+      .catch(err => alert("Failed to save task: " + err.message));
+  }
+
+  // Cancel editing task
+  function cancelEdit() {
     document.getElementById("new-task-title").value = "";
     document.getElementById("new-task-desc").value = "";
-    assignedSelect.selectedIndex = -1;
-    setTab("dashboard");
-  }).catch(err => {
-    alert("Failed to add task: " + err.message);
-  });
-}
-
-    function editTask(id) {
-  const task = tasks.find((t) => t.id === id);
-  document.getElementById("new-task-title").value = task.title;
-  document.getElementById("new-task-desc").value = task.description;
-  const assignedSelect = document.getElementById("task-assigned");
-  Array.from(assignedSelect.options).forEach(option => {
-    option.selected = task.assignedTo && task.assignedTo.includes(option.value);
-  });
-  document.getElementById("save-edit-btn").classList.remove("hidden");
-  document.getElementById("save-edit-btn").setAttribute("data-id", id);
-  document.getElementById("cancel-edit-btn").classList.remove("hidden");
-}
-
-    function saveEditTask() {
-  const id = document.getElementById("save-edit-btn").getAttribute("data-id");
-  const title = document.getElementById("new-task-title").value.trim();
-  const desc = document.getElementById("new-task-desc").value;
-  const assignedSelect = document.getElementById("task-assigned");
-  const assignedTo = Array.from(assignedSelect.selectedOptions).map(o => o.value);
-  if (!title) {
-    alert("Task title is required.");
-    return;
+    const assignedSelect = document.getElementById("task-assigned");
+    Array.from(assignedSelect.options).forEach(option => option.selected = false);
+    document.getElementById("save-edit-btn").classList.add("hidden");
+    document.getElementById("cancel-edit-btn").classList.add("hidden");
+    document.getElementById("save-edit-btn").removeAttribute("data-id");
   }
-    const task = tasks.find((t) => t.id === id);
-  task.title = title;
-  task.description = desc;
-  task.assignedTo = assignedTo;
-  saveTaskToDB(task).then(() => {
-    cancelEdit();
-  }).catch(err => {
-    alert("Failed to save task: " + err.message);
-  });
-}
 
-    function cancelEdit() {
-      document.getElementById("new-task-title").value = "";
-      document.getElementById("new-task-desc").value = "";
-      const assignedSelect = document.getElementById("task-assigned");
-      Array.from(assignedSelect.options).forEach(option => option.selected = false);
-      document.getElementById("save-edit-btn").classList.add("hidden");
-      document.getElementById("cancel-edit-btn").classList.add("hidden");
-      document.getElementById("save-edit-btn").removeAttribute("data-id");
+  // Delete task from Firestore
+  function deleteTask(id) {
+    if (confirm("Are you sure you want to delete this task?")) {
+      db.collection("tasks").doc(id).delete()
+        .catch(err => alert("Failed to delete task: " + err.message));
     }
-
-    function deleteTask(id) {
-  if (confirm("Are you sure you want to delete this task?")) {
-    db.collection("tasks").doc(id).delete().catch(err => {
-      alert("Failed to delete task: " + err.message);
-    });
-  }
-}
-function markDone(id) {
-  const task = tasks.find((t) => t.id === id);
-  if (!task.doneBy.includes(currentUser .username)) {
-    task.doneBy.push(currentUser .username);
-    task.timestamps[currentUser .username] = new Date().toISOString();
-    saveTaskToDB(task).catch(err => {
-      alert("Failed to mark task done: " + err.message);
-    });
   }
 
-      saveTasks();
-      loadTasks();
-      loadDashboard();
-      loadLeaderboard();
+  // Mark task as done by current user
+  function markDone(id) {
+    const task = tasks.find(t => t.id === id);
+    if (!task) return;
+    if (!task.doneBy.includes(currentUser .username)) {
+      task.doneBy.push(currentUser .username);
+      task.timestamps = task.timestamps || {};
+      task.timestamps[currentUser .username] = new Date().toISOString();
+      db.collection("tasks").doc(id).set(task)
+        .catch(err => alert("Failed to mark done: " + err.message));
     }
+  }
 
-    function loadDashboard() {
-      let completions = [];
-      tasks.forEach((task) => {
+  // Load dashboard recent completions
+  function loadDashboard() {
+    let completions = [];
+    tasks.forEach(task => {
+      if (task.doneBy && task.timestamps) {
         for (const user of task.doneBy) {
           completions.push({
             username: user,
@@ -805,204 +760,236 @@ function markDone(id) {
             timestamp: task.timestamps[user],
           });
         }
-      });
-      completions.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
-      const recent = completions.slice(0, 10);
-      document.getElementById("recent-completions").innerHTML = recent.length
-        ? recent
-            .map(
-              (c) => `
-          <div class="bg-green-50 p-3 rounded border border-green-200">
-            <p class="font-medium text-green-dark">${c.username}</p>
-            <p class="text-gray-600">Completed "${c.taskTitle}"</p>
-            <p class="text-xs text-gray-600">at ${formatTime(c.timestamp)}</p>
-          </div>
-        `
-            )
-            .join("")
-        : '<p class="text-gray-600">No recent task completions.</p>';
-    }
-
-    function formatTime(iso) {
-      const d = new Date(iso);
-      return d.toLocaleString();
-    }
-
-    function loadLeaderboard() {
-      const total = tasks.length;
-      if (total === 0) {
-        document.getElementById("leaderboard-list").innerHTML =
-          '<div class="text-center text-gray-600">No tasks available for leaderboard.</div>';
-        return;
       }
-      const lbs = users
-        .map((u) => {
-          const done = tasks.filter((t) => t.doneBy.includes(u.username)).length;
-          const percent = ((done / total) * 100).toFixed(2);
-          return { user: u, percent: parseFloat(percent) };
-        })
-        .sort((a, b) => b.percent - a.percent);
-      document.getElementById("leaderboard-list").innerHTML = lbs
-        .map(
-          (l, i) => `
-        <div class="card flex items-center justify-between">
-          <div class="flex items-center">
-            <span class="text-lg font-bold text-green-dark mr-3">${i + 1}</span>
-            <img src="${l.user.image}" alt="${l.user.username}" class="leaderboard-user-img" />
-            <span class="font-medium text-green-dark">${l.user.username}</span>
-            ${
-              l.user.isAdmin
-                ? '<span class="ml-2 px-2 py-1 bg-gray-200 text-gray-600 text-xs rounded-full">Admin</span>'
-                : ""
-            }
-          </div>
-          <div class="text-right min-w-0 flex-1">
-            <div class="font-semibold text-green-dark">${l.percent}%</div>
-            <div class="progress-bar w-full max-w-32">
-              <div class="progress-fill" style="width: ${Math.min(l.percent, 100)}%"></div>
-            </div>
+    });
+    completions.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+    const recent = completions.slice(0, 10);
+    const container = document.getElementById("recent-completions");
+    container.innerHTML = recent.length
+      ? recent.map(c => `
+        <div class="bg-green-50 p-3 rounded border border-green-200">
+          <p class="font-medium text-green-dark">${c.username}</p>
+          <p class="text-gray-600">Completed "${c.taskTitle}"</p>
+          <p class="text-xs text-gray-600">at ${formatTime(c.timestamp)}</p>
+        </div>
+      `).join("")
+      : '<p class="text-gray-600">No recent task completions.</p>';
+  }
+
+  // Format ISO timestamp to local string
+  function formatTime(iso) {
+    if (!iso) return "";
+    const d = new Date(iso);
+    return d.toLocaleString();
+  }
+
+  // Load leaderboard
+  function loadLeaderboard() {
+    const total = tasks.length;
+    const container = document.getElementById("leaderboard-list");
+    if (total === 0) {
+      container.innerHTML = '<div class="text-center text-gray-600">No tasks available for leaderboard.</div>';
+      return;
+    }
+    const leaderboard = users.map(u => {
+      const doneCount = tasks.filter(t => t.doneBy && t.doneBy.includes(u.username)).length;
+      const percent = ((doneCount / total) * 100).toFixed(2);
+      return { user: u, percent: parseFloat(percent) };
+    }).sort((a, b) => b.percent - a.percent);
+    container.innerHTML = leaderboard.map((l, i) => `
+      <div class="card flex items-center justify-between">
+        <div class="flex items-center">
+          <span class="text-lg font-bold text-green-dark mr-3">${i + 1}</span>
+          <img src="${l.user.image}" alt="${l.user.username}" class="leaderboard-user-img" />
+          <span class="font-medium text-green-dark">${l.user.username}</span>
+          ${l.user.isAdmin ? '<span class="ml-2 px-2 py-1 bg-gray-200 text-gray-600 text-xs rounded-full">Admin</span>' : ''}
+        </div>
+        <div class="text-right min-w-0 flex-1">
+          <div class="font-semibold text-green-dark">${l.percent}%</div>
+          <div class="progress-bar w-full max-w-32">
+            <div class="progress-fill" style="width: ${Math.min(l.percent, 100)}%"></div>
           </div>
         </div>
-      `
-        )
-        .join("");
-    }
+      </div>
+    `).join("");
+  }
 
-    function loadCalendar() {
-      renderCalendar();
-      toggleAgendaControls(!currentUser .isAdmin);
-    }
+  // Calendar rendering and agenda controls
+  function loadCalendar() {
+    renderCalendar();
+    toggleAgendaControls(!currentUser .isAdmin);
+  }
 
-    function renderCalendar() {
-      const year = currentMonth.getFullYear();
-      const month = currentMonth.getMonth();
-      const title = currentMonth.toLocaleString("default", { month: "long", year: "numeric" });
-      document.getElementById("calendar-title").textContent = title;
-      const firstDay = new Date(year, month, 1).getDay();
-      const lastDay = new Date(year, month + 1, 0).getDate();
-      const grid = [];
-      for (let i = 0; i < firstDay; i++) grid.push("");
-      for (let d = 1; d <= lastDay; d++) grid.push(d.toString());
-      const today = new Date().getDate();
-      const monthStr = (month + 1).toString().padStart(2, "0");
-      document.getElementById("calendar-grid").innerHTML = grid
-        .map((day) => {
-          if (!day) return '<div class="day-cell"></div>';
-          const d = parseInt(day);
-          const date = `${year}-${monthStr}-${d.toString().padStart(2, "0")}`;
-          const hasAgenda = agendas[date] && agendas[date].length > 0;
-          const isToday = d === today && month === new Date().getMonth() && year === new Date().getFullYear();
-          return `
-            <div class="day-cell ${isToday ? "today" : ""} ${hasAgenda ? "agenda" : ""}" onclick="selectDate('${date}')">
-              <div class="font-medium text-green-dark">${d}</div>
-              ${
-                hasAgenda
-                  ? `<div class="w-2 h-2 bg-green-700 rounded-full mt-2 mx-auto" title="Agenda scheduled"></div>`
-                  : ""
-              }
-            </div>
-          `;
-        })
-        .join("");
-    }
+  function renderCalendar() {
+    const year = currentMonth.getFullYear();
+    const month = currentMonth.getMonth();
+    const title = currentMonth.toLocaleString("default", { month: "long", year: "numeric" });
+    document.getElementById("calendar-title").textContent = title;
+    const firstDay = new Date(year, month, 1).getDay();
+    const lastDay = new Date(year, month + 1, 0).getDate();
+    const grid = [];
+    for (let i = 0; i < firstDay; i++) grid.push("");
+    for (let d = 1; d <= lastDay; d++) grid.push(d.toString());
+    const today = new Date();
+    const todayDate = today.getDate();
+    const todayMonth = today.getMonth();
+    const todayYear = today.getFullYear();
+    const monthStr = (month + 1).toString().padStart(2, "0");
+    document.getElementById("calendar-grid").innerHTML = grid.map(day => {
+      if (!day) return '<div class="day-cell"></div>';
+      const d = parseInt(day);
+      const dateStr = `${year}-${monthStr}-${d.toString().padStart(2, "0")}`;
+      const hasAgenda = agendas[dateStr] && agendas[dateStr].length > 0;
+      const isToday = d === todayDate && month === todayMonth && year === todayYear;
+      return `
+        <div class="day-cell ${isToday ? "today" : ""} ${hasAgenda ? "agenda" : ""}" onclick="selectDate('${dateStr}')">
+          <div class="font-medium text-green-dark">${d}</div>
+          ${hasAgenda ? `<div class="w-2 h-2 bg-green-700 rounded-full mt-2 mx-auto" title="Agenda scheduled"></div>` : ""}
+        </div>
+      `;
+    }).join("");
+  }
 
-    function changeMonth(delta) {
-      currentMonth.setMonth(currentMonth.getMonth() + delta);
-      renderCalendar();
-    }
+  function changeMonth(delta) {
+    currentMonth.setMonth(currentMonth.getMonth() + delta);
+    renderCalendar();
+  }
 
-    function selectDate(date) {
-      selectedDate = date;
-      if (currentUser .isAdmin) {
-        document.getElementById("agenda-date").value = date;
-        showAgendas(date);
-        document.getElementById("agenda-controls").classList.remove("hidden");
-        document.getElementById("agenda-display").classList.remove("hidden");
-      } else {
-        showAgendas(date);
-        document.getElementById("agenda-controls").classList.add("hidden");
-        document.getElementById("agenda-display").classList.remove("hidden");
-      }
+  // Select date and load agendas for that date
+  function selectDate(date) {
+    selectedDate = date;
+    startAgendaListener(date);
+    if (currentUser .isAdmin) {
+      document.getElementById("agenda-date").value = date;
+      document.getElementById("agenda-controls").classList.remove("hidden");
+    } else {
+      document.getElementById("agenda-controls").classList.add("hidden");
     }
+    document.getElementById("agenda-display").classList.remove("hidden");
+  }
 
-    function addAgenda() {
-      const date = document.getElementById("agenda-date").value;
-      const text = document.getElementById("agenda-text").value.trim();
-      if (!text) {
-        alert("Agenda description is required.");
-        return;
-      }
-      if (!agendas[date]) agendas[date] = [];
-      agendas[date].push(text);
-      saveAgendas();
-      document.getElementById("agenda-text").value = "";
-      renderCalendar();
-      showAgendas(date);
-      setTab("dashboard");
-    }
-
-    function showAgendas(date) {
-      const agendaListEl = document.getElementById("agenda-list");
-      document.getElementById("agenda-date-display").textContent = date;
-      const agendaItems = agendas[date] || [];
-      if (agendaItems.length === 0) {
-        agendaListEl.innerHTML = '<li class="text-gray-600">No agendas scheduled.</li>';
-      } else {
-        agendaListEl.innerHTML = agendaItems
-          .map((agenda, index) => {
-            if (currentUser .isAdmin) {
-              return `
-                <li class="text-gray-600 flex justify-between items-center">
-                  <span>${agenda}</span>
-                  <button onclick="deleteAgenda('${date}', ${index})" class="btn btn-red px-2 py-1 text-xs ml-2">Delete</button>
-                </li>
-              `;
-            } else {
-              return `<li class="text-gray-600">${agenda}</li>`;
-            }
-          })
-          .join("");
-      }
-    }
-
-    function deleteAgenda(date, index) {
-      if (confirm("Are you sure you want to delete this agenda item?")) {
-        agendas[date].splice(index, 1);
-        if (agendas[date].length === 0) {
-          delete agendas[date];
+  // Show agendas for selected date
+  function showAgendas(date) {
+    document.getElementById("agenda-date-display").textContent = date;
+    const list = document.getElementById("agenda-list");
+    list.innerHTML = "";
+    if (agendas[date] && agendas[date].length > 0) {
+      agendas[date].forEach((agenda, idx) => {
+        const li = document.createElement("li");
+        li.textContent = agenda;
+        if (currentUser .isAdmin) {
+          const delBtn = document.createElement("button");
+          delBtn.textContent = "Delete";
+          delBtn.className = "btn btn-red px-2 py-1 text-xs ml-2";
+          delBtn.onclick = () => deleteAgenda(date, idx);
+          li.appendChild(delBtn);
         }
-        saveAgendas();
-        showAgendas(date);
-        renderCalendar();
+        list.appendChild(li);
+      });
+    } else {
+      list.innerHTML = `<li class="text-gray-600">No agendas scheduled.</li>`;
+    }
+  }
+
+  // Add agenda item to Firestore for selected date
+  function addAgenda() {
+    const date = document.getElementById("agenda-date").value;
+    const text = document.getElementById("agenda-text").value.trim();
+    if (!date || !text) {
+      alert("Please provide a date and agenda description.");
+      return;
+    }
+    const agendaRef = db.collection("agendas").doc(date);
+    agendaRef.get().then(doc => {
+      let items = doc.exists ? doc.data().items || [] : [];
+      items.push(text);
+      return agendaRef.set({ items });
+    }).then(() => {
+      document.getElementById("agenda-text").value = "";
+      // Refresh agendas and calendar
+      startAgendaListener(date);
+      renderCalendar();
+      setTab("dashboard");
+    }).catch(err => alert("Failed to add agenda: " + err.message));
+  }
+
+  // Delete agenda item from Firestore for selected date
+  function deleteAgenda(date, index) {
+    if (!confirm("Are you sure you want to delete this agenda item?")) return;
+    const agendaRef = db.collection("agendas").doc(date);
+    agendaRef.get().then(doc => {
+      if (!doc.exists) return;
+      let items = doc.data().items || [];
+      items.splice(index, 1);
+      if (items.length === 0) {
+        return agendaRef.delete();
+      } else {
+        return agendaRef.set({ items });
+      }
+    }).catch(err => alert("Failed to delete agenda: " + err.message));
+  }
+
+  // Toggle agenda controls visibility
+  function toggleAgendaControls(hide) {
+    document.getElementById("agenda-controls").classList.toggle("hidden", hide);
+    document.getElementById("agenda-display").classList.toggle("hidden", true);
+  }
+
+  // Save notes to Firestore
+  function saveNotes() {
+    if (!currentUser  || !currentUser .isAdmin) return;
+    const notes = document.getElementById("notes-textarea").value;
+    db.collection("shared").doc("notes").set({ text: notes })
+      .then(() => {
+        const msg = document.getElementById("notes-save-msg");
+        msg.classList.remove("hidden");
+        setTimeout(() => msg.classList.add("hidden"), 2000);
+      })
+      .catch(err => alert("Failed to save notes: " + err.message));
+  }
+
+  // Load notes handled by real-time listener in startNotesListener()
+
+  // Load content for selected tab
+  function loadTabContent(tab) {
+    if (tab === "tasks") loadTasks();
+    else if (tab === "dashboard") loadDashboard();
+    else if (tab === "leaderboard") loadLeaderboard();
+    else if (tab === "calendar") loadCalendar();
+    else if (tab === "notes") {
+      // Notes content is updated by listener, just ensure UI state
+      const textarea = document.getElementById("notes-textarea");
+      const saveBtn = document.querySelector("#notes-section button");
+      if (currentUser  && currentUser .isAdmin) {
+        textarea.removeAttribute("disabled");
+        saveBtn.style.display = "inline-block";
+      } else {
+        textarea.setAttribute("disabled", "disabled");
+        saveBtn.style.display = "none";
       }
     }
+  }
 
-    function toggleAgendaControls(hide) {
-      document.getElementById("agenda-controls").classList.toggle("hidden", hide);
-      document.getElementById("agenda-display").classList.toggle("hidden", true);
-    }
+  // Set active tab and update UI
+  function setTab(tab) {
+    currentTab = tab;
+    const sections = ["tasks", "dashboard", "leaderboard", "calendar", "notes"];
+    sections.forEach(s => {
+      document.getElementById(s + "-section").classList.toggle("hidden", s !== tab);
+      const btn = document.getElementById(s + "-tab");
+      if (s === tab) {
+        btn.classList.add("border-b-2", "border-white");
+        btn.classList.remove("text-gray-300");
+      } else {
+        btn.classList.remove("border-b-2", "border-white");
+        btn.classList.add("text-gray-300");
+      }
+    });
+    loadTabContent(tab);
+  }
 
-    function saveTasks() {
-      localStorage.setItem("tasks", JSON.stringify(tasks));
-    }
-    function saveAgendas() {
-      localStorage.setItem("agendas", JSON.stringify(agendas));
-    }
-  const firebaseConfig = {
-  apiKey: "AIzaSyCKOdZE4KUTBkqNPqI06DssMnYOxaMbBkQ",
-  authDomain: "finance-e0bb2.firebaseapp.com",
-  projectId: "finance-e0bb2",
-  storageBucket: "finance-e0bb2.firebasestorage.app",
-  messagingSenderId: "35313604805",
-  appId: "1:35313604805:web:e1d62db4399fc72f6cb8ac",
-  measurementId: "G-XM3H689SNC"
-};
-
-// Initialize Firebase
-firebase.initializeApp(firebaseConfig);
-const db = firebase.firestore();
-    init();
-  </script>
+  // Initialize app on page load
+  window.onload = init;
+</script>
 </body>
 </html>
-  
