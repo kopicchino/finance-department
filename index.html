@@ -623,7 +623,7 @@
   // Load and render tasks list
   function loadTasks() {
     const tasksList = document.getElementById("tasks-list");
-    const visibleTasks = tasks.filter(isUser.Assigned);
+    const visibleTasks = tasks.filter(isUserAssigned);
     tasksList.innerHTML = visibleTasks.length
       ? visibleTasks.map(task => `
         <div class="card">
@@ -937,16 +937,28 @@
 
   // Save notes to Firestore
   function saveNotes() {
-    if (!currentUser  || !currentUser .isAdmin) return;
-    const notes = document.getElementById("notes-textarea").value;
-    db.collection("shared").doc("notes").set({ text: notes })
-      .then(() => {
-        const msg = document.getElementById("notes-save-msg");
-        msg.classList.remove("hidden");
-        setTimeout(() => msg.classList.add("hidden"), 2000);
-      })
-      .catch(err => alert("Failed to save notes: " + err.message));
-  }
+  if (!currentUser || !currentUser.isAdmin) return;
+
+  const content = document.getElementById("notes-textarea").value.trim();
+  if (!content) return; // prevent saving empty notes
+
+  const note = { 
+    id: Date.now(), 
+    content, 
+    user: loggedInUser.username 
+  };
+
+  notes.push(note);
+
+  db.collection("shared").doc("notes").set({ text: notes })
+    .then(() => {
+      const msg = document.getElementById("notes-save-msg");
+      msg.classList.remove("hidden");
+      setTimeout(() => msg.classList.add("hidden"), 2000);
+    })
+    .catch(err => alert("Failed to save notes: " + err.message));
+}
+
 
   // Load notes handled by real-time listener in startNotesListener()
 
