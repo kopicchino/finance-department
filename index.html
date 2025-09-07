@@ -423,16 +423,53 @@
     </div>
   </footer>
 
+<!-- Add Firebase SDK scripts in your <head> or before your script -->
+<script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-firestore-compat.js"></script>
+
   <script>
+
+    const firebaseConfig = {
+  apiKey: "AIzaSyCKOdZE4KUTBkqNPqI06DssMnYOxaMbBkQ",
+  authDomain: "finance-e0bb2.firebaseapp.com",
+  projectId: "finance-e0bb2",
+  storageBucket: "finance-e0bb2.firebasestorage.app",
+  messagingSenderId: "35313604805",
+  appId: "1:35313604805:web:e1d62db4399fc72f6cb8ac",
+  measurementId: "G-XM3H689SNC"
+};
+
+// Initialize Firebase
+const app = initializeApp(firebaseConfig);
+const analytics = getAnalytics(app);
+firebase.initializeApp(firebaseConfig);
+const db = firebase.firestore();
+
+async function loadTasksFromDB() {
+  const snapshot = await db.collection("tasks").get();
+  tasks = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+  loadTasks(); // render tasks
+}
+
+async function saveTaskToDB(task) {
+  if (task.id && typeof task.id === "string") {
+    // Update existing
+    await db.collection("tasks").doc(task.id).set(task);
+  } else {
+    // Add new
+    const docRef = await db.collection("tasks").add(task);
+    task.id = docRef.id;
+  }
+}
     // Fixed data
     const users = [
-      { username: "jeff", isAdmin: true, image: "jeff.jpg" },
-      { username: "rain", isAdmin: false, image: "rain.jpg" },
-      { username: "venice", isAdmin: false, image: "venice.jpg" },
-      { username: "mark", isAdmin: false, image: "mark.jpg" },
-      { username: "julie", isAdmin: true, image: "julie.jpg" },
-      { username: "rj", isAdmin: true, image: "rj.jpg" },
-      { username: "gerardo", isAdmin: false, image: "gerardo.jpg" },
+      { username: "jeff", isAdmin: true, image: "images/users/jeff.jpg" },
+      { username: "rain", isAdmin: false, image: "images/users/rain.jpg" },
+      { username: "venice", isAdmin: false, image: "images/users/venice.jpg" },
+      { username: "mark", isAdmin: false, image: "images/users/mark.jpg" },
+      { username: "julie", isAdmin: true, image: "images/users/julie.jpg" },
+      { username: "rj", isAdmin: true, image: "images/users/rj.jpg" },
+      { username: "gerardo", isAdmin: false, image: "images/users/gerardo.jpg" },
     ];
 
     const teams = {
@@ -932,4 +969,3 @@
   </script>
 </body>
 </html>
-
