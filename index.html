@@ -469,22 +469,50 @@ async function saveTaskToDB(task) {
 
     // App data
     let currentUser  = null;
-    let tasks = JSON.parse(localStorage.getItem("tasks")) || [];
+    let task = JSON.parse(localStorage.getItem("tasks")) || [];
     let agendas = JSON.parse(localStorage.getItem("agendas")) || {};
     let currentTab = "tasks";
     let currentMonth = new Date();
     let selectedDate = null;
 
-    function init () {
-      if (localStorage.getItem("username")) {
-        currentUser   = users.find(
-          (u) => u.username === localStorage.getItem("username").toLowerCase()
-        );
-        showApp();
-        setTab("tasks");
-        loadTasks();
-      }
-    }
+let tasks = [];
+let unsubscribeTasksListener = null;
+
+    function init() {
+  if (localStorage.getItem("username")) {
+    currentUser  = users.find(
+      (u) => u.username === localStorage.getItem("username").toLowerCase()
+    );
+    showApp();
+    setTab("tasks");
+    startTasksListener(); // Start listening to Firestore tasks
+  }
+}
+
+function startTasksListener() {
+  if (unsubscribeTasksListener) unsubscribeTasksListener(); // unsubscribe previous listener if any
+  unsubscribeTasksListener = db.collection("tasks")
+    .onSnapshot((snapshot) => {
+      tasks = snapshot.docs.map(doc => {
+        return { id: doc.id, ...doc.data() };
+      });
+      loadTasks(); // render tasks after update
+      loadLeaderboard();
+      loadDashboard();
+    }, (error) => {
+      console.error("Error fetching tasks from Firestore:", error);
+    });
+}
+
+function saveTaskToDB(task) {
+  if (task.id && typeof task.id === "string") {
+    // Update existing task
+    return db.collection("tasks").doc(task.id).set(task);
+  } else {
+    // Add new task
+    return db.collection("tasks").add(task);
+  }
+}
 
     function populateAssignmentOptions() {
       const select = document.getElementById("task-assigned");
@@ -674,59 +702,65 @@ async function saveTaskToDB(task) {
         .join(", ");
     }
 
-    function addTask() {
-      const title = document.getElementById("new-task-title").value.trim();
-      const desc = document.getElementById("new-task-desc").value;
-      const assignedSelect = document.getElementById("task-assigned");
-      const assignedTo = Array.from(assignedSelect.selectedOptions).map(o => o.value);
-
-      if (!title) {
-        alert("Task title is required.");
-        return;
-      }
-      const id = tasks.length ? tasks[tasks.length - 1].id + 1 : 1;
-      tasks.push({ id, title, description: desc, doneBy: [], timestamps: {}, assignedTo });
-      saveTasks();
-      document.getElementById("new-task-title").value = "";
-      document.getElementById("new-task-desc").value = "";
-      assignedSelect.selectedIndex = -1;
-      loadTasks();
-      loadLeaderboard();
-      setTab("dashboard");
-    }
+   function addTask() {
+  const title = document.getElementById("new-task-title").value.trim();
+  const desc = document.getElementById("new-task-desc").value;
+  const assignedSelect = document.getElementById("task-assigned");
+  const assignedTo = Array.from(assignedSelect.selectedOptions).map(o => o.value);
+  if (!title) {
+    alert("Task title is required.");
+    return;
+  }
+const newTask = {
+    title,
+    description: desc,
+    doneBy: [],
+    timestamps: {},
+    assignedTo
+}
+ saveTaskToDB(newTask).then(() => {
+    document.getElementById("new-task-title").value = "";
+    document.getElementById("new-task-desc").value = "";
+    assignedSelect.selectedIndex = -1;
+    setTab("dashboard");
+  }).catch(err => {
+    alert("Failed to add task: " + err.message);
+  });
+}
 
     function editTask(id) {
-      const task = tasks.find((t) => t.id === id);
-      document.getElementById("new-task-title").value = task.title;
-      document.getElementById("new-task-desc").value = task.description;
-      const assignedSelect = document.getElementById("task-assigned");
-      Array.from(assignedSelect.options).forEach(option => {
-        option.selected = task.assignedTo && task.assignedTo.includes(option.value);
-      });
-      document.getElementById("save-edit-btn").classList.remove("hidden");
-      document.getElementById("save-edit-btn").setAttribute("data-id", id);
-      document.getElementById("cancel-edit-btn").classList.remove("hidden");
-    }
+  const task = tasks.find((t) => t.id === id);
+  document.getElementById("new-task-title").value = task.title;
+  document.getElementById("new-task-desc").value = task.description;
+  const assignedSelect = document.getElementById("task-assigned");
+  Array.from(assignedSelect.options).forEach(option => {
+    option.selected = task.assignedTo && task.assignedTo.includes(option.value);
+  });
+  document.getElementById("save-edit-btn").classList.remove("hidden");
+  document.getElementById("save-edit-btn").setAttribute("data-id", id);
+  document.getElementById("cancel-edit-btn").classList.remove("hidden");
+}
 
     function saveEditTask() {
-      const id = parseInt(document.getElementById("save-edit-btn").getAttribute("data-id"));
-      const title = document.getElementById("new-task-title").value.trim();
-      const desc = document.getElementById("new-task-desc").value;
-      const assignedSelect = document.getElementById("task-assigned");
-      const assignedTo = Array.from(assignedSelect.selectedOptions).map(o => o.value);
-
-      if (!title) {
-        alert("Task title is required.");
-        return;
-      }
-      const task = tasks.find((t) => t.id === id);
-      task.title = title;
-      task.description = desc;
-      task.assignedTo = assignedTo;
-      saveTasks();
-      cancelEdit();
-      loadTasks();
-    }
+  const id = document.getElementById("save-edit-btn").getAttribute("data-id");
+  const title = document.getElementById("new-task-title").value.trim();
+  const desc = document.getElementById("new-task-desc").value;
+  const assignedSelect = document.getElementById("task-assigned");
+  const assignedTo = Array.from(assignedSelect.selectedOptions).map(o => o.value);
+  if (!title) {
+    alert("Task title is required.");
+    return;
+  }
+    const task = tasks.find((t) => t.id === id);
+  task.title = title;
+  task.description = desc;
+  task.assignedTo = assignedTo;
+  saveTaskToDB(task).then(() => {
+    cancelEdit();
+  }).catch(err => {
+    alert("Failed to save task: " + err.message);
+  });
+}
 
     function cancelEdit() {
       document.getElementById("new-task-title").value = "";
@@ -739,20 +773,22 @@ async function saveTaskToDB(task) {
     }
 
     function deleteTask(id) {
-      if (confirm("Are you sure you want to delete this task?")) {
-        tasks = tasks.filter((t) => t.id !== id);
-        saveTasks();
-        loadTasks();
-        loadLeaderboard();
-      }
-    }
+  if (confirm("Are you sure you want to delete this task?")) {
+    db.collection("tasks").doc(id).delete().catch(err => {
+      alert("Failed to delete task: " + err.message);
+    });
+  }
+}
+function markDone(id) {
+  const task = tasks.find((t) => t.id === id);
+  if (!task.doneBy.includes(currentUser .username)) {
+    task.doneBy.push(currentUser .username);
+    task.timestamps[currentUser .username] = new Date().toISOString();
+    saveTaskToDB(task).catch(err => {
+      alert("Failed to mark task done: " + err.message);
+    });
+  }
 
-    function markDone(id) {
-      const task = tasks.find((t) => t.id === id);
-      if (!task.doneBy.includes(currentUser .username)) {
-        task.doneBy.push(currentUser .username);
-        task.timestamps[currentUser .username] = new Date().toISOString();
-      }
       saveTasks();
       loadTasks();
       loadDashboard();
@@ -969,3 +1005,4 @@ const db = firebase.firestore();
   </script>
 </body>
 </html>
+  
