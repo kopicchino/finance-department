@@ -607,12 +607,13 @@
 
   // Check if current user is assigned to a task
   function isUserAssigned(task) {
+    if (currentUser.isAdmin) return true; // Admins see all tasks
     if (!task.assignedTo || task.assignedTo.length === 0) return true; // visible to all
-    if (task.assignedTo.includes(currentUser .username)) return true;
+    if (task.assignedTo.includes(currentUser.username)) return true;
     for (const assign of task.assignedTo) {
       if (assign.startsWith("team:")) {
         const teamName = assign.slice(5);
-        if (teams[teamName] && teams[teamName].includes(currentUser .username)) {
+        if (teams[teamName] && teams[teamName].includes(currentUser.username)) {
           return true;
         }
       }
@@ -937,27 +938,19 @@
 
   // Save notes to Firestore
   function saveNotes() {
-  if (!currentUser || !currentUser.isAdmin) return;
+    if (!currentUser || !currentUser.isAdmin) return;
 
-  const content = document.getElementById("notes-textarea").value.trim();
-  if (!content) return; // prevent saving empty notes
+    const content = document.getElementById("notes-textarea").value.trim();
+    if (!content) return; // prevent saving empty notes
 
-  const note = { 
-    id: Date.now(), 
-    content, 
-    user: loggedInUser.username 
-  };
-
-  notes.push(note);
-
-  db.collection("shared").doc("notes").set({ text: notes })
-    .then(() => {
-      const msg = document.getElementById("notes-save-msg");
-      msg.classList.remove("hidden");
-      setTimeout(() => msg.classList.add("hidden"), 2000);
-    })
-    .catch(err => alert("Failed to save notes: " + err.message));
-}
+    db.collection("shared").doc("notes").set({ text: content })
+      .then(() => {
+        const msg = document.getElementById("notes-save-msg");
+        msg.classList.remove("hidden");
+        setTimeout(() => msg.classList.add("hidden"), 2000);
+      })
+      .catch(err => alert("Failed to save notes: " + err.message));
+  }
 
 
   // Load notes handled by real-time listener in startNotesListener()
