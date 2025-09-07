@@ -1,0 +1,934 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Finance Department - Task Monitor</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    /* Finance color palette */
+    :root {
+      --green-dark: #1e3a2f;
+      --green-light: #4caf50;
+      --blue-dark: #0b2545;
+      --blue-light: #3a7ca5;
+      --gray-dark: #2f2f2f;
+      --gray-medium: #6b7280;
+      --gray-light: #d1d5db;
+      --black: #000000;
+      --white: #ffffff;
+    }
+
+    .hidden {
+      display: none;
+    }
+    .fade-in {
+      animation: fadeIn 0.5s;
+    }
+    @keyframes fadeIn {
+      from {
+        opacity: 0;
+      }
+      to {
+        opacity: 1;
+      }
+    }
+    /* Custom scrollbar */
+    .custom-scroll {
+      max-height: 150px;
+      overflow-y: auto;
+      scrollbar-width: thin;
+      scrollbar-color: var(--gray-dark) var(--gray-light);
+    }
+    .custom-scroll::-webkit-scrollbar {
+      width: 6px;
+    }
+    .custom-scroll::-webkit-scrollbar-track {
+      background: var(--white);
+    }
+    .custom-scroll::-webkit-scrollbar-thumb {
+      background: var(--gray-light);
+      border-radius: 3px;
+    }
+    /* Calendar grid */
+    .calendar-grid {
+      display: grid;
+      grid-template-columns: repeat(7, 1fr);
+      gap: 8px;
+    }
+    .day-cell {
+      padding: 12px;
+      border: 1px solid var(--gray-light);
+      background: linear-gradient(135deg, var(--white), #f0fdfa);
+      cursor: pointer;
+      min-height: 70px;
+      border-radius: 8px;
+      box-shadow: 0 2px 6px rgba(26, 115, 83, 0.15);
+      transition: transform 0.2s;
+      color: var(--green-dark);
+      user-select: none;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+    .day-cell:hover {
+      transform: scale(1.02);
+      background: #d1fae5;
+    }
+    .day-cell.today {
+      background: linear-gradient(135deg, var(--green-light), var(--green-dark));
+      border: 2px solid var(--blue-dark);
+      font-weight: 700;
+      color: var(--white);
+      box-shadow: 0 0 8px var(--green-light);
+    }
+    .day-cell.agenda {
+      background: linear-gradient(135deg, #a7f3d0, #6ee7b7);
+      border-color: var(--blue-dark);
+      color: var(--blue-dark);
+    }
+    /* Task table */
+    .task-table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+    .task-table th,
+    .task-table td {
+      padding: 12px;
+      text-align: left;
+      border-bottom: 1px solid var(--gray-light);
+      color: var(--gray-dark);
+    }
+    .task-table th {
+      background: var(--blue-dark);
+      color: var(--white);
+    }
+    /* Leaderboard progress bar */
+    .progress-bar {
+      background: var(--gray-light);
+      border-radius: 10px;
+      overflow: hidden;
+      height: 20px;
+      margin-top: 5px;
+    }
+    .progress-fill {
+      height: 100%;
+      background: var(--green-dark);
+      transition: width 0.3s;
+    }
+    /* Modern gradients and shadows */
+    .card {
+      background: var(--white);
+      border-radius: 12px;
+      padding: 20px;
+      box-shadow: 0 8px 20px rgba(14, 78, 54, 0.15);
+    }
+    .btn {
+      border-radius: 8px;
+      font-weight: bold;
+      transition: all 0.3s;
+      box-shadow: 0 4px 8px rgba(14, 78, 54, 0.4);
+      background: var(--green-light);
+      color: var(--white);
+      cursor: pointer;
+      user-select: none;
+    }
+    .btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 12px rgba(14, 78, 54, 0.6);
+      background: var(--green-dark);
+    }
+    .btn-red {
+      background: #b91c1c;
+      color: var(--white);
+      box-shadow: 0 4px 8px rgba(185, 28, 28, 0.4);
+    }
+    .btn-red:hover {
+      background: #7f1d1d;
+      box-shadow: 0 6px 12px rgba(127, 29, 29, 0.6);
+    }
+    .btn-green {
+      background: var(--green-dark);
+      color: var(--white);
+      box-shadow: 0 4px 8px rgba(14, 78, 54, 0.4);
+    }
+    .btn-green:hover {
+      background: var(--green-light);
+      box-shadow: 0 6px 12px rgba(14, 78, 54, 0.6);
+    }
+    .btn-blue {
+      background: var(--blue-light);
+      color: var(--white);
+      box-shadow: 0 4px 8px rgba(10, 44, 82, 0.4);
+    }
+    .btn-blue:hover {
+      background: var(--blue-dark);
+      box-shadow: 0 6px 12px rgba(10, 44, 82, 0.6);
+    }
+    .btn-gray {
+      background: var(--gray-light);
+      color: var(--gray-dark);
+      box-shadow: 0 4px 8px rgba(107, 114, 128, 0.4);
+    }
+    .btn-gray:hover {
+      background: #9ca3af;
+    }
+    .header-bg {
+      background: linear-gradient(135deg, var(--blue-dark), var(--green-dark));
+      color: var(--white);
+      box-shadow: 0 4px 12px rgba(14, 78, 54, 0.5);
+    }
+    .nav-bg {
+      background: linear-gradient(135deg, var(--green-light), var(--blue-light));
+      color: var(--white);
+      box-shadow: inset 0 -2px 4px rgba(14, 78, 54, 0.3);
+    }
+    /* Alert styles */
+    .alert {
+      padding: 12px;
+      border-radius: 8px;
+      margin-bottom: 12px;
+    }
+    .alert-error {
+      background: #fee2e2;
+      color: #b91c1c;
+    }
+    /* Responsive */
+    @media (max-width: 768px) {
+      .container {
+        padding: 0 15px;
+      }
+      .calendar-grid {
+        grid-template-columns: repeat(1, 1fr);
+      }
+      .task-table {
+        font-size: 14px;
+      }
+    }
+    @media (max-width: 480px) {
+      nav > div {
+        flex-direction: column;
+        align-items: center;
+      }
+      nav > div > button {
+        width: 100%;
+        margin-bottom: 8px;
+      }
+    }
+    /* Leaderboard user image */
+    .leaderboard-user-img {
+      width: 40px;
+      height: 40px;
+      border-radius: 9999px;
+      object-fit: cover;
+      border: 1px solid var(--gray-light);
+      margin-right: 0.75rem;
+    }
+    /* Agenda list flex for delete button */
+    #agenda-list li {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    #agenda-list li button {
+      margin-left: 0.5rem;
+      font-size: 0.75rem;
+      padding: 0.25rem 0.5rem;
+    }
+    /* Logo circle */
+    #login-section img {
+      width: 120px;
+      height: 120px;
+      object-fit: cover;
+      border-radius: 50%;
+      border: 4px solid var(--green-dark);
+      box-shadow: 0 4px 12px rgba(14, 78, 54, 0.5);
+    }
+  </style>
+</head>
+<body class="bg-white font-sans min-h-screen flex flex-col">
+  <header class="header-bg p-4 shadow-sm">
+    <div class="container mx-auto flex justify-between items-center">
+      <h1 class="text-2xl font-bold">Finance Department Task Monitor</h1>
+      <button id="logout-btn" class="btn btn-red text-xs px-3 py-1 hidden" onclick="logout()">Logout</button>
+    </div>
+  </header>
+
+  <div id="login-section" class="flex-grow flex items-center justify-center p-6">
+    <div class="card w-full max-w-md text-center">
+      <img
+        src="logo.jpg"
+        alt="Finance Department Logo"
+        class="mx-auto mb-6 rounded-full"
+      />
+      <h2 class="text-xl font-semibold mb-4 text-green-dark">Login</h2>
+      <input
+        id="username-input"
+        type="text"
+        placeholder="Enter your name"
+        class="w-full p-3 border border-gray-400 rounded mb-3 text-green-dark placeholder-gray-500"
+      />
+      <button onclick="login()" class="btn btn-blue w-full py-3">Login</button>
+      <p id="login-error" class="alert-error hidden mt-3 text-sm"></p>
+    </div>
+  </div>
+
+  <div id="app-section" class="flex-grow hidden">
+    <nav class="nav-bg py-3">
+      <div class="container mx-auto flex flex-wrap justify-center gap-2 px-4">
+        <button
+          id="tasks-tab"
+          class="btn text-sm px-3 py-1 border-b-2 border-white flex-grow sm:flex-grow-0"
+          onclick="setTab('tasks')"
+        >
+          Tasks
+        </button>
+        <button
+          id="dashboard-tab"
+          class="btn text-sm px-3 py-1 text-gray-300 flex-grow sm:flex-grow-0"
+          onclick="setTab('dashboard')"
+        >
+          Dashboard
+        </button>
+        <button
+          id="leaderboard-tab"
+          class="btn text-sm px-3 py-1 text-gray-300 flex-grow sm:flex-grow-0"
+          onclick="setTab('leaderboard')"
+        >
+          Leaderboard
+        </button>
+        <button
+          id="calendar-tab"
+          class="btn text-sm px-3 py-1 text-gray-300 flex-grow sm:flex-grow-0"
+          onclick="setTab('calendar')"
+        >
+          Calendar
+        </button>
+        <button
+          id="notes-tab"
+          class="btn text-sm px-3 py-1 text-gray-300 flex-grow sm:flex-grow-0"
+          onclick="setTab('notes')"
+        >
+          Notes
+        </button>
+      </div>
+    </nav>
+
+    <main class="container mx-auto p-4 flex-1">
+      <div id="tasks-section" class="fade-in">
+        <h2 class="text-3xl font-bold mb-6 text-green-dark">Tasks</h2>
+        <div id="admin-task-controls" class="card mb-6 hidden">
+          <h3 class="text-lg font-medium mb-4 text-green-dark">Add/Edit Task</h3>
+          <input
+            id="new-task-title"
+            type="text"
+            placeholder="Task Title"
+            class="w-full p-2 border border-gray-400 rounded mb-2 text-green-dark"
+          />
+          <textarea
+            id="new-task-desc"
+            placeholder="Task Description (optional)"
+            class="w-full p-2 border border-gray-400 rounded mb-3 text-green-dark"
+            rows="3"
+          ></textarea>
+          <label for="task-assigned" class="block font-medium mb-1 text-green-dark">Assign to (users or teams):</label>
+          <select id="task-assigned" multiple class="w-full p-2 border border-gray-400 rounded mb-3 text-green-dark" size="5">
+            <!-- Options will be populated by JS -->
+          </select>
+          <button onclick="addTask()" class="btn btn-green px-4 py-2 mr-2">
+            Add Task
+          </button>
+          <button
+            onclick="saveEditTask()"
+            class="btn btn-gray px-4 py-2 hidden"
+            id="save-edit-btn"
+          >
+            Save Edit
+          </button>
+          <button
+            onclick="cancelEdit()"
+            class="btn btn-gray px-4 py-2 hidden"
+            id="cancel-edit-btn"
+          >
+            Cancel Edit
+          </button>
+        </div>
+        <div id="tasks-list" class="space-y-4"></div>
+      </div>
+
+      <div id="notes-section" class="hidden fade-in">
+        <h2 class="text-3xl font-bold mb-6 text-green-dark">Notes / Reminders</h2>
+        <div class="card">
+          <textarea id="notes-textarea" rows="22" class="w-full p-4 border border-gray-400 rounded text-green-dark" placeholder="Write your notes or reminders here..."></textarea>
+          <button onclick="saveNotes()" class="btn btn-blue mt-4 px-6 py-2">Save Notes</button>
+          <p id="notes-save-msg" class="text-green-700 mt-2 hidden">Notes saved!</p>
+        </div>
+      </div>
+
+      <div id="dashboard-section" class="hidden fade-in">
+        <h2 class="text-3xl font-bold mb-6 text-green-dark">Dashboard</h2>
+        <div id="recent-completions" class="card space-y-3"></div>
+      </div>
+
+      <div id="leaderboard-section" class="hidden fade-in">
+        <h2 class="text-3xl font-bold mb-6 text-green-dark">Leaderboard</h2>
+        <div id="leaderboard-list" class="space-y-4"></div>
+      </div>
+
+      <div id="calendar-section" class="hidden fade-in">
+        <h2 class="text-3xl font-bold mb-6 text-green-dark">Calendar</h2>
+        <div class="flex justify-between items-center mb-4">
+          <button onclick="changeMonth(-1)" class="btn btn-blue px-3 py-1">
+            &larr;
+          </button>
+          <span id="calendar-title" class="text-lg font-semibold text-green-dark"></span>
+          <button onclick="changeMonth(1)" class="btn btn-blue px-3 py-1">
+            &rarr;
+          </button>
+        </div>
+        <div id="calendar-grid" class="calendar-grid mb-4"></div>
+        <div id="agenda-controls" class="card hidden">
+          <h3 class="text-lg font-medium mb-4 text-green-dark">Add Agenda</h3>
+          <input
+            type="date"
+            id="agenda-date"
+            class="p-2 border border-gray-400 rounded mb-3 text-green-dark"
+          />
+          <input
+            id="agenda-text"
+            type="text"
+            placeholder="Agenda Description"
+            class="p-2 border border-gray-400 rounded mb-3 mr-2 text-green-dark"
+          />
+          <button onclick="addAgenda()" class="btn btn-blue px-4 py-2">
+            Add Agenda
+          </button>
+        </div>
+        <div id="agenda-display" class="card hidden">
+          <h3 class="text-xl font-semibold mb-4 text-green-dark">
+            Agenda for <span id="agenda-date-display"></span>
+          </h3>
+          <ul
+            id="agenda-list"
+            class="list-disc list-inside custom-scroll space-y-1"
+          ></ul>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <footer class="bg-gray-100 p-4 mt-8 border-t border-gray-300">
+    <div class="container mx-auto text-center text-gray-600">
+      <p>© 2025 Finance Department. All rights reserved.</p>
+    </div>
+  </footer>
+
+  <script>
+    // Fixed data
+    const users = [
+      { username: "jeff", isAdmin: true, image: "images/users/jeff.jpg" },
+      { username: "rain", isAdmin: false, image: "images/users/rain.jpg" },
+      { username: "venice", isAdmin: false, image: "images/users/venice.jpg" },
+      { username: "mark", isAdmin: false, image: "images/users/mark.jpg" },
+      { username: "julie", isAdmin: true, image: "images/users/julie.jpg" },
+      { username: "rj", isAdmin: true, image: "images/users/rj.jpg" },
+      { username: "gerardo", isAdmin: false, image: "images/users/gerardo.jpg" },
+    ];
+
+    const teams = {
+      auditor: ["gerardo"],
+      "finance assistant": ["rain", "venice"],
+      "finance relations manager": ["rj"],
+      "finance relations assistant": ["julie"],
+    };
+
+    // App data
+    let currentUser  = null;
+    let tasks = JSON.parse(localStorage.getItem("tasks")) || [];
+    let agendas = JSON.parse(localStorage.getItem("agendas")) || {};
+    let currentTab = "tasks";
+    let currentMonth = new Date();
+    let selectedDate = null;
+
+    function init () {
+      if (localStorage.getItem("username")) {
+        currentUser   = users.find(
+          (u) => u.username === localStorage.getItem("username").toLowerCase()
+        );
+        showApp();
+        setTab("tasks");
+        loadTasks();
+      }
+    }
+
+    function populateAssignmentOptions() {
+      const select = document.getElementById("task-assigned");
+      select.innerHTML = "";
+
+      // Add users
+      users.forEach((u) => {
+        const option = document.createElement("option");
+        option.value = u.username;
+        option.textContent = `:User  ${u.username}`;
+        select.appendChild(option);
+      });
+
+      // Add teams
+      Object.keys(teams).forEach((team) => {
+        const option = document.createElement("option");
+        option.value = `team:${team}`;
+        option.textContent = `Team: ${team}`;
+        select.appendChild(option);
+      });
+    }
+
+    function loadNotes() {
+      const sharedKey = "shared_notes";
+      const savedNotes = localStorage.getItem(sharedKey) || "";
+      const textarea = document.getElementById("notes-textarea");
+      const saveBtn = document.querySelector("#notes-section button");
+      textarea.value = savedNotes;
+      document.getElementById("notes-save-msg").classList.add("hidden");
+      if (currentUser .isAdmin) {
+        textarea.removeAttribute("disabled");
+        saveBtn.style.display = "inline-block";
+      } else {
+        textarea.setAttribute("disabled", "disabled");
+        saveBtn.style.display = "none";
+      }
+    }
+
+    function saveNotes() {
+      const sharedKey = "shared_notes";
+      const notes = document.getElementById("notes-textarea").value;
+      localStorage.setItem(sharedKey, notes);
+      const msg = document.getElementById("notes-save-msg");
+      msg.classList.remove("hidden");
+      setTimeout(() => msg.classList.add("hidden"), 2000);
+    }
+
+    function login() {
+      const username = document
+        .getElementById("username-input")
+        .value.toLowerCase();
+      const errorEl = document.getElementById("login-error");
+      currentUser  = users.find((u) => u.username === username);
+      if (currentUser ) {
+        localStorage.setItem("username", currentUser .username);
+        showApp();
+        setTab("tasks");
+        loadTasks();
+        errorEl.classList.add("hidden");
+      } else {
+        errorEl.textContent = "Invalid username. Please enter a valid name.";
+        errorEl.classList.remove("hidden");
+      }
+    }
+
+    function logout() {
+      localStorage.removeItem("username");
+      currentUser  = null;
+      hideApp();
+      setTab("tasks");
+      document.getElementById("username-input").value = "";
+      document.getElementById("login-error").classList.add("hidden");
+    }
+
+    function showApp() {
+      document.getElementById("login-section").classList.add("hidden");
+      document.getElementById("app-section").classList.remove("hidden");
+      document.getElementById("logout-btn").classList.remove("hidden");
+      // Show admin controls if admin
+      document
+        .getElementById("admin-task-controls")
+        .classList.toggle("hidden", !currentUser .isAdmin);
+      if (currentUser .isAdmin) {
+        populateAssignmentOptions();
+      }
+    }
+
+    function hideApp() {
+      document.getElementById("app-section").classList.add("hidden");
+      document.getElementById("login-section").classList.remove("hidden");
+      document.getElementById("logout-btn").classList.add("hidden");
+    }
+
+    function setTab(tab) {
+      currentTab = tab;
+      const sections = ["tasks", "dashboard", "leaderboard", "calendar", "notes"];
+      sections.forEach((s) => {
+        document.getElementById(s + "-section").classList.toggle("hidden", s !== tab);
+        const btn = document.getElementById(s + "-tab");
+        if (s === tab) {
+          btn.classList.add("border-b-2", "border-white");
+          btn.classList.remove("text-gray-300");
+        } else {
+          btn.classList.remove("border-b-2", "border-white");
+          btn.classList.add("text-gray-300");
+        }
+      });
+      loadTabContent(tab);
+    }
+
+    function loadTabContent(tab) {
+      if (tab === "tasks") loadTasks();
+      if (tab === "dashboard") loadDashboard();
+      if (tab === "leaderboard") loadLeaderboard();
+      if (tab === "calendar") loadCalendar();
+      if (tab === "notes") loadNotes();
+    }
+
+    function isUserAssigned(task) {
+      if (!task.assignedTo || task.assignedTo.length === 0) return true; // no assignment means visible to all
+
+      // Check if user assigned directly
+      if (task.assignedTo.includes(currentUser .username)) return true;
+
+      // Check if user is in any assigned team
+      for (const assign of task.assignedTo) {
+        if (assign.startsWith("team:")) {
+          const teamName = assign.slice(5);
+          if (teams[teamName] && teams[teamName].includes(currentUser .username)) {
+            return true;
+          }
+        }
+      }
+      return false;
+    }
+
+    function loadTasks() {
+      const tasksList = document.getElementById("tasks-list");
+      const visibleTasks = tasks.filter(isUserAssigned);
+      tasksList.innerHTML = visibleTasks.length
+        ? visibleTasks
+            .map(
+              (task) => `
+            <div class="card">
+              <h3 class="text-xl font-semibold text-green-dark mb-2">${task.title}</h3>
+              <p class="text-gray-600 mb-3">${task.description || "No description"}</p>
+              <p class="text-sm text-gray-600 mb-3">Completed by: <span class="font-medium">${
+                task.doneBy.length ? task.doneBy.join(", ") : "None"
+              }</span></p>
+              <p class="text-sm text-gray-600 mb-3">Assigned to: <span class="font-medium">${
+                formatAssignedTo(task.assignedTo)
+              }</span></p>
+              <div class="flex flex-wrap gap-2">
+                ${
+                  currentUser .isAdmin
+                    ? `
+                  <button onclick="editTask(${task.id})" class="btn btn-gray">Edit</button>
+                  <button onclick="deleteTask(${task.id})" class="btn btn-red">Delete</button>
+                `
+                    : ""
+                }
+                ${
+                  !task.doneBy.includes(currentUser .username)
+                    ? `<button onclick="markDone(${task.id})" class="btn btn-green">Mark as Done</button>`
+                    : '<span class="text-green-600 font-semibold">✔ Completed</span>'
+                }
+              </div>
+            </div>
+          `
+            )
+            .join("")
+        : '<p class="text-gray-600">No tasks assigned to you.</p>';
+      document
+        .getElementById("admin-task-controls")
+        .classList.toggle("hidden", !currentUser .isAdmin);
+    }
+
+    function formatAssignedTo(assignedTo) {
+      if (!assignedTo || assignedTo.length === 0) return "All users";
+      return assignedTo
+        .map((a) => {
+          if (a.startsWith("team:")) {
+            return `Team: ${a.slice(5)}`;
+          }
+          return `:User  ${a}`;
+        })
+        .join(", ");
+    }
+
+    function addTask() {
+      const title = document.getElementById("new-task-title").value.trim();
+      const desc = document.getElementById("new-task-desc").value;
+      const assignedSelect = document.getElementById("task-assigned");
+      const assignedTo = Array.from(assignedSelect.selectedOptions).map(o => o.value);
+
+      if (!title) {
+        alert("Task title is required.");
+        return;
+      }
+      const id = tasks.length ? tasks[tasks.length - 1].id + 1 : 1;
+      tasks.push({ id, title, description: desc, doneBy: [], timestamps: {}, assignedTo });
+      saveTasks();
+      document.getElementById("new-task-title").value = "";
+      document.getElementById("new-task-desc").value = "";
+      assignedSelect.selectedIndex = -1;
+      loadTasks();
+      loadLeaderboard();
+      setTab("dashboard");
+    }
+
+    function editTask(id) {
+      const task = tasks.find((t) => t.id === id);
+      document.getElementById("new-task-title").value = task.title;
+      document.getElementById("new-task-desc").value = task.description;
+      const assignedSelect = document.getElementById("task-assigned");
+      Array.from(assignedSelect.options).forEach(option => {
+        option.selected = task.assignedTo && task.assignedTo.includes(option.value);
+      });
+      document.getElementById("save-edit-btn").classList.remove("hidden");
+      document.getElementById("save-edit-btn").setAttribute("data-id", id);
+      document.getElementById("cancel-edit-btn").classList.remove("hidden");
+    }
+
+    function saveEditTask() {
+      const id = parseInt(document.getElementById("save-edit-btn").getAttribute("data-id"));
+      const title = document.getElementById("new-task-title").value.trim();
+      const desc = document.getElementById("new-task-desc").value;
+      const assignedSelect = document.getElementById("task-assigned");
+      const assignedTo = Array.from(assignedSelect.selectedOptions).map(o => o.value);
+
+      if (!title) {
+        alert("Task title is required.");
+        return;
+      }
+      const task = tasks.find((t) => t.id === id);
+      task.title = title;
+      task.description = desc;
+      task.assignedTo = assignedTo;
+      saveTasks();
+      cancelEdit();
+      loadTasks();
+    }
+
+    function cancelEdit() {
+      document.getElementById("new-task-title").value = "";
+      document.getElementById("new-task-desc").value = "";
+      const assignedSelect = document.getElementById("task-assigned");
+      Array.from(assignedSelect.options).forEach(option => option.selected = false);
+      document.getElementById("save-edit-btn").classList.add("hidden");
+      document.getElementById("cancel-edit-btn").classList.add("hidden");
+      document.getElementById("save-edit-btn").removeAttribute("data-id");
+    }
+
+    function deleteTask(id) {
+      if (confirm("Are you sure you want to delete this task?")) {
+        tasks = tasks.filter((t) => t.id !== id);
+        saveTasks();
+        loadTasks();
+        loadLeaderboard();
+      }
+    }
+
+    function markDone(id) {
+      const task = tasks.find((t) => t.id === id);
+      if (!task.doneBy.includes(currentUser .username)) {
+        task.doneBy.push(currentUser .username);
+        task.timestamps[currentUser .username] = new Date().toISOString();
+      }
+      saveTasks();
+      loadTasks();
+      loadDashboard();
+      loadLeaderboard();
+    }
+
+    function loadDashboard() {
+      let completions = [];
+      tasks.forEach((task) => {
+        for (const user of task.doneBy) {
+          completions.push({
+            username: user,
+            taskTitle: task.title,
+            timestamp: task.timestamps[user],
+          });
+        }
+      });
+      completions.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+      const recent = completions.slice(0, 10);
+      document.getElementById("recent-completions").innerHTML = recent.length
+        ? recent
+            .map(
+              (c) => `
+          <div class="bg-green-50 p-3 rounded border border-green-200">
+            <p class="font-medium text-green-dark">${c.username}</p>
+            <p class="text-gray-600">Completed "${c.taskTitle}"</p>
+            <p class="text-xs text-gray-600">at ${formatTime(c.timestamp)}</p>
+          </div>
+        `
+            )
+            .join("")
+        : '<p class="text-gray-600">No recent task completions.</p>';
+    }
+
+    function formatTime(iso) {
+      const d = new Date(iso);
+      return d.toLocaleString();
+    }
+
+    function loadLeaderboard() {
+      const total = tasks.length;
+      if (total === 0) {
+        document.getElementById("leaderboard-list").innerHTML =
+          '<div class="text-center text-gray-600">No tasks available for leaderboard.</div>';
+        return;
+      }
+      const lbs = users
+        .map((u) => {
+          const done = tasks.filter((t) => t.doneBy.includes(u.username)).length;
+          const percent = ((done / total) * 100).toFixed(2);
+          return { user: u, percent: parseFloat(percent) };
+        })
+        .sort((a, b) => b.percent - a.percent);
+      document.getElementById("leaderboard-list").innerHTML = lbs
+        .map(
+          (l, i) => `
+        <div class="card flex items-center justify-between">
+          <div class="flex items-center">
+            <span class="text-lg font-bold text-green-dark mr-3">${i + 1}</span>
+            <img src="${l.user.image}" alt="${l.user.username}" class="leaderboard-user-img" />
+            <span class="font-medium text-green-dark">${l.user.username}</span>
+            ${
+              l.user.isAdmin
+                ? '<span class="ml-2 px-2 py-1 bg-gray-200 text-gray-600 text-xs rounded-full">Admin</span>'
+                : ""
+            }
+          </div>
+          <div class="text-right min-w-0 flex-1">
+            <div class="font-semibold text-green-dark">${l.percent}%</div>
+            <div class="progress-bar w-full max-w-32">
+              <div class="progress-fill" style="width: ${Math.min(l.percent, 100)}%"></div>
+            </div>
+          </div>
+        </div>
+      `
+        )
+        .join("");
+    }
+
+    function loadCalendar() {
+      renderCalendar();
+      toggleAgendaControls(!currentUser .isAdmin);
+    }
+
+    function renderCalendar() {
+      const year = currentMonth.getFullYear();
+      const month = currentMonth.getMonth();
+      const title = currentMonth.toLocaleString("default", { month: "long", year: "numeric" });
+      document.getElementById("calendar-title").textContent = title;
+      const firstDay = new Date(year, month, 1).getDay();
+      const lastDay = new Date(year, month + 1, 0).getDate();
+      const grid = [];
+      for (let i = 0; i < firstDay; i++) grid.push("");
+      for (let d = 1; d <= lastDay; d++) grid.push(d.toString());
+      const today = new Date().getDate();
+      const monthStr = (month + 1).toString().padStart(2, "0");
+      document.getElementById("calendar-grid").innerHTML = grid
+        .map((day) => {
+          if (!day) return '<div class="day-cell"></div>';
+          const d = parseInt(day);
+          const date = `${year}-${monthStr}-${d.toString().padStart(2, "0")}`;
+          const hasAgenda = agendas[date] && agendas[date].length > 0;
+          const isToday = d === today && month === new Date().getMonth() && year === new Date().getFullYear();
+          return `
+            <div class="day-cell ${isToday ? "today" : ""} ${hasAgenda ? "agenda" : ""}" onclick="selectDate('${date}')">
+              <div class="font-medium text-green-dark">${d}</div>
+              ${
+                hasAgenda
+                  ? `<div class="w-2 h-2 bg-green-700 rounded-full mt-2 mx-auto" title="Agenda scheduled"></div>`
+                  : ""
+              }
+            </div>
+          `;
+        })
+        .join("");
+    }
+
+    function changeMonth(delta) {
+      currentMonth.setMonth(currentMonth.getMonth() + delta);
+      renderCalendar();
+    }
+
+    function selectDate(date) {
+      selectedDate = date;
+      if (currentUser .isAdmin) {
+        document.getElementById("agenda-date").value = date;
+        showAgendas(date);
+        document.getElementById("agenda-controls").classList.remove("hidden");
+        document.getElementById("agenda-display").classList.remove("hidden");
+      } else {
+        showAgendas(date);
+        document.getElementById("agenda-controls").classList.add("hidden");
+        document.getElementById("agenda-display").classList.remove("hidden");
+      }
+    }
+
+    function addAgenda() {
+      const date = document.getElementById("agenda-date").value;
+      const text = document.getElementById("agenda-text").value.trim();
+      if (!text) {
+        alert("Agenda description is required.");
+        return;
+      }
+      if (!agendas[date]) agendas[date] = [];
+      agendas[date].push(text);
+      saveAgendas();
+      document.getElementById("agenda-text").value = "";
+      renderCalendar();
+      showAgendas(date);
+      setTab("dashboard");
+    }
+
+    function showAgendas(date) {
+      const agendaListEl = document.getElementById("agenda-list");
+      document.getElementById("agenda-date-display").textContent = date;
+      const agendaItems = agendas[date] || [];
+      if (agendaItems.length === 0) {
+        agendaListEl.innerHTML = '<li class="text-gray-600">No agendas scheduled.</li>';
+      } else {
+        agendaListEl.innerHTML = agendaItems
+          .map((agenda, index) => {
+            if (currentUser .isAdmin) {
+              return `
+                <li class="text-gray-600 flex justify-between items-center">
+                  <span>${agenda}</span>
+                  <button onclick="deleteAgenda('${date}', ${index})" class="btn btn-red px-2 py-1 text-xs ml-2">Delete</button>
+                </li>
+              `;
+            } else {
+              return `<li class="text-gray-600">${agenda}</li>`;
+            }
+          })
+          .join("");
+      }
+    }
+
+    function deleteAgenda(date, index) {
+      if (confirm("Are you sure you want to delete this agenda item?")) {
+        agendas[date].splice(index, 1);
+        if (agendas[date].length === 0) {
+          delete agendas[date];
+        }
+        saveAgendas();
+        showAgendas(date);
+        renderCalendar();
+      }
+    }
+
+    function toggleAgendaControls(hide) {
+      document.getElementById("agenda-controls").classList.toggle("hidden", hide);
+      document.getElementById("agenda-display").classList.toggle("hidden", true);
+    }
+
+    function saveTasks() {
+      localStorage.setItem("tasks", JSON.stringify(tasks));
+    }
+    function saveAgendas() {
+      localStorage.setItem("agendas", JSON.stringify(agendas));
+    }
+
+    init();
+  </script>
+</body>
+</html>
